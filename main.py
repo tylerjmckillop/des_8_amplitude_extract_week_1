@@ -79,7 +79,7 @@ if status == 200:
     with open(zip_path, 'wb') as file:
         file.write(response.content)
 
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:      # <-- the missing block
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_dir)
 
     # look inside the project-id folder that extractall created
@@ -95,3 +95,7 @@ if status == 200:
             print(out_path)
 else:
     print(status, response.text)
+
+#new folder with unzipped files is where they save 
+#add logging in
+#add true except
