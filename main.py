@@ -13,19 +13,25 @@ import logging
 
 import boto3
 
+import glob
+import shutil
+
 from dotenv import load_dotenv
 
 import math
 
+import zipfile
+import gzip
 
-#2. Create secret key variables 
+
+#2. Create secret key variables and URL variable
 
 load_dotenv() 
 
 amp_api_key = os.getenv("AMP_API_KEY")
 amp_secret_key = os.getenv("AMP_SECRET_KEY")
-print(amp_api_key)
-print(amp_secret_key)
+
+url = 'https://analytics.eu.amplitude.com/api/2/export'
 
 #3. Create local file where data will sit
 
@@ -47,9 +53,45 @@ yesterday = dt.now() - timedelta(days=1)
 # Format the start and end time strings
 start_time = yesterday.strftime('%Y%m%dT00')
 end_time = yesterday.strftime('%Y%m%dT23')
-print(start_time)
-print(end_time)
 
 
+#5. Create time parameters and then also create response variable using URL variable created earlier
+
+params = {
+    'start': start_time,
+    'end': end_time
+}
+
+response = requests.get(url, params=params, auth=(amp_api_key, amp_secret_key))
+
+#6. If statement to ensure status code is working, then from that include 
+
+status = response.status_code
+
+zip_path = f'{amp_dir}/{timestamp}.zip'
+extract_dir = f'{amp_dir}/{timestamp}'
+extension = ".json.gz"
 
 
+#6. Check against status code
+
+if status == 200: 
+    with open(zip_path, 'wb') as file:
+        file.write(response.content)
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:      # <-- the missing block
+        zip_ref.extractall(extract_dir)
+
+    # look inside the project-id folder that extractall created
+    gz_folder = os.path.join(extract_dir, os.listdir(extract_dir)[0])
+
+    for item in os.listdir(gz_folder):
+        if item.endswith(extension):
+            file_path = os.path.join(gz_folder, item)     # full path to the file
+            out_path = file_path[:-3]                     # chop off ".gz"
+            with gzip.open(file_path, 'rb') as f_in:
+                with open(out_path, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            print(out_path)
+else:
+    print(status, response.text)
