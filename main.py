@@ -58,9 +58,11 @@ end_time = yesterday.strftime('%Y%m%dT23')
 # Create logging folder and then file path
 
 log_dir = 'log'
-os.makedirs(log_dir),
+os.makedirs(log_dir, exist_ok = True)
+log_filename = f'{amp_dir}/{timestamp}.json'
 
 
+# Configure the logging
 log_filename = f"logs/logging_amplitude_data_{dt.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 logging.basicConfig(
@@ -69,6 +71,9 @@ logging.basicConfig(
     filename=log_filename
 )
 
+# Create the logger
+logger = logging.getLogger()
+logger.info('Logger successfully initialised')
 
 #5. Create time parameters and then also create response variable using URL variable created earlier
 
