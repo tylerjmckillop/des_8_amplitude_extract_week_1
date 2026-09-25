@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 
+#Secret keys 
 *.env
 .venv
 *\data*

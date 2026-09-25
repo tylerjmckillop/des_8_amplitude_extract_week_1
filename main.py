@@ -45,7 +45,6 @@ end_time = yesterday.strftime('%Y%m%dT23')
 
 log_dir = 'log'
 os.makedirs(log_dir, exist_ok = True)
-log_filename = f'{amp_dir}/{timestamp}.log'
 log_filename = f"{log_dir}/logging_amplitude_data_{dt.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 logging.basicConfig(
@@ -55,11 +54,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger()
-logger.debug('This is a debug message')
-logger.info('Logger successfully initialised')
-logger.warning("Something unexpected")        
-logger.error("An error occurred")             
-logger.critical("Critical system error")
 
 #6. Create time parameters and then also create response variable using URL variable created earlier
 
@@ -84,31 +78,35 @@ extension = ".json.gz"
 clean_extension = ".json"
 
 if status == 200:
-    with open(zip_path, 'wb') as file:     
-            file.write(response.content)        
+    try:
+        with open(zip_path, 'wb') as file:     
+                file.write(response.content)        
 
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:  
-            zip_ref.extractall(extract_dir)   
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:  
+                zip_ref.extractall(extract_dir)  
 
-    gz_folder = os.path.join(extract_dir, os.listdir(extract_dir)[0])
+        gz_folder = os.path.join(extract_dir, os.listdir(extract_dir)[0])
 
-    for item in os.listdir(gz_folder):     
-        if item.endswith(extension):        
-            file_path = os.path.join(gz_folder, item) 
-            out_path = file_path[:-3]                   
-
-            with gzip.open(file_path, 'rb') as f_in:
-                with open(out_path, 'wb') as f_out:  
-                    shutil.copyfileobj(f_in, f_out)      
-
-
-    for item in os.listdir(gz_folder):
-        if item.endswith(clean_extension):
-            source_path = os.path.join(gz_folder, item)
-            clean_path = os.path.join(clean_extract_dir, item)
-            shutil.move(source_path, clean_path)
-    print(f'{clean_extract_dir} was successfully saved')
-    logger.info(f'{clean_extract_dir} was successfully saved')
+        for item in os.listdir(gz_folder):     
+            if item.endswith(extension):        
+                file_path = os.path.join(gz_folder, item) 
+                out_path = file_path[:-3]                   
+                with gzip.open(file_path, 'rb') as f_in:
+                    with open(out_path, 'wb') as f_out:  
+                        shutil.copyfileobj(f_in, f_out)      
+                        print(f'{gz_folder} was successfully saved')
+                        logger.info(f'{gz_folder} was successfully saved')
+                        
+        for item in os.listdir(gz_folder):
+            if item.endswith(clean_extension):
+                source_path = os.path.join(gz_folder, item)
+                clean_path = os.path.join(clean_extract_dir, item)
+                shutil.move(source_path, clean_path)
+        print(f'{clean_extract_dir} was successfully saved')
+        logger.info(f'{clean_extract_dir} was successfully saved')
+    except Exception as e:
+        print(f'An error has occured: {e}')
+        logger.error(f'An error has occured: {e}')
 elif status == 400:
      print(f'The size of the exported data is too large. Please shorten the time ranges and try again')
      logger.warning(f'The size of the exported data is too large. Please shorten the time ranges and try again')
@@ -125,3 +123,5 @@ else:
 
 shutil.rmtree(gz_folder)
 os.remove(zip_path)
+print(f'{gz_folder} and {zip_path} was successfully deleted')
+logger.info(f'{gz_folder} and {zip_path} was successfully deleted')
