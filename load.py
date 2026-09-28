@@ -58,7 +58,6 @@ clean = os.listdir(clean_extract_dir)
 
 for file in clean:
         file_to_upload = f'amplitude_data/clean/{file}'
-        print(file)
         try: 
             s3_client.upload_file(file_to_upload, AWS_BUCKET_NAME, file)
             print(f'{file} Uploaded successfully')
