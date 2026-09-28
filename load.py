@@ -20,6 +20,25 @@ s3_client = boto3.client(
     aws_secret_access_key = AWS_SECRET_ACCESS_KEY
 )
 
+# Make a folder for log files if it doesn't already exist
+
+timestamp = dt.now().strftime('%Y-%m-%d %H-%M-%S')
+
+log_dir = 'load_log'
+os.makedirs(log_dir, exist_ok = True)
+log_filename = f'{log_dir}/{timestamp}.log'
+
+
+# Configure logging so messages are written to the log file
+logging.basicConfig(
+    filename = log_filename,
+    format = '%(asctime)s - %(levelname)s -%(message)s',
+    level = logging.INFO
+)
+
+# Create the logger and confirm that is has been successfully set up 
+logger = logging.getLogger()
+logger.info('Logger successfully initialised')
 
 # Run a dummy upload
 # dummy_upload = 'amplitude_data/2026-09-25 16-03-26/clean/100011471_2026-09-24_0#0.json'
