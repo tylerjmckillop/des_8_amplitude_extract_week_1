@@ -1,70 +1,84 @@
-# Amplitude Data Export
+# Amplitude to S3 Pipeline
 
-Pulls the previous day's raw event data from Amplitude's Export API, unzips it, decompresses the `.json.gz` files inside, and drops the clean JSON into its own folder.
+Two Python scripts that export event data from Amplitude and upload it to an AWS S3 bucket.
 
-## What it does
+1. **`extract_amplitude.py`**: downloads yesterday's Amplitude data and unpacks it into JSON files.
+2. **`upload_to_s3.py`**: uploads those JSON files to S3.
 
-1. Hits the Amplitude `/api/2/export` endpoint for yesterday (00:00–23:00)
-2. Saves the response as a `.zip`
-3. Extracts it, then gunzips each `.json.gz` file it finds
-4. Moves the resulting `.json` files into a `clean/` subfolder
-5. Logs everything (and prints to console) along the way
-6. Deletes the zip and the intermediate extract folder once it's done
-
-## Requirements
-
-- Python 3.9+
-- `requests`, `python-dotenv` (everything else used is stdlib)
-
-```bash
-pip install requests python-dotenv
-```
+Run them in that order, from the project root.
 
 ## Setup
 
-Create a `.env` file in the project root with your Amplitude API credentials:
-
-```
-AMP_API_KEY=your_api_key
-AMP_SECRET_KEY=your_secret_key
-```
-
-Note the script is pointed at the EU endpoint (`analytics.eu.amplitude.com`). If your project is on the standard/US instance, change the `url` variable to `https://amplitude.com/api/2/export`.
-
-## Running it
+### 1. Install dependencies
 
 ```bash
-python amplitude_export.py
+pip install requests boto3 python-dotenv
 ```
 
-Each run creates a timestamped folder under `amplitude_data/`, e.g.:
+### 2. Create a `.env` file
+
+In the project root, add:
 
 ```
-amplitude_data/
-  2026-09-24 09-00-00.zip
-  2026-09-24 09-00-00/
-    <amplitude export folder>/
-      clean/
-        <date>.json
-        <date>.json
+AMP_API_KEY=your_amplitude_api_key
+AMP_SECRET_KEY=your_amplitude_secret_key
+AWS_ACCESS_KEY=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_BUCKET_NAME=your_bucket_name
 ```
 
-Logs go to `log/`, one file per run.
+Never commit `.env` to version control.
 
-## Status code handling
+## Usage
 
-| Code  | Meaning                                                            |
-| ----- | ------------------------------------------------------------------ |
-| 200   | Success — export is processed as above                             |
-| 400   | Time range too large — shorten it and retry                        |
-| 404   | No data available for that range                                   |
-| 504   | Timeout due to data volume — use the S3 export destination instead |
-| other | Unexpected error, logged as critical                               |
+```bash
+python extract_amplitude.py
+python upload_to_s3.py
+```
 
-## Scheduling
+## What each script does
 
-Since it always pulls "yesterday," this is meant to run once a day (cron, Task Scheduler, Airflow, whatever you've got) rather than be triggered manually for backfills.
+### `extract_amplitude.py`
 
-## Known improvements
+- Calls the Amplitude Export API (EU endpoint) for **yesterday's data**, from 00:00 to 23:00.
+- Saves the response as a temporary zip file and extracts it.
+- Decompresses the `.json.gz` files into `.json`.
+- Moves the finished files to `amplitude_data/clean/`.
+- Deletes the temporary zip and extract folder.
+- Logs to `log/logging_amplitude_data_<timestamp>.log`.
 
-The cleanup step at the bottom (`shutil.rmtree(gz_folder)` / `os.remove(zip_path)`) runs no matter what status code came back. If the request didn't return 200, `gz_folder` was never created and this will blow up with a `NameError`. Worth wrapping that cleanup in an `if status == 200:` check, or guarding it the same way the move step is guarded.
+Amplitude status codes handled:
+
+| Code  | Meaning                                                  |
+| ----- | -------------------------------------------------------- |
+| 200   | Success, data is downloaded and processed                |
+| 400   | Data too large, shorten the time range                   |
+| 404   | No data for the requested time range                     |
+| 504   | Timeout, use the Amazon S3 destination for large volumes |
+| Other | Logged as a critical error                               |
+
+### `upload_to_s3.py`
+
+- Reads every file in `amplitude_data/clean/`.
+- Uploads each file to the S3 bucket, using the filename as the object key.
+- **Deletes each local file after a successful upload.** Files that fail to upload are kept so you can retry.
+- Logs to `load_log/<timestamp>.log`.
+
+## Folder structure
+
+```
+.
+├── .env
+├── extract_amplitude.py
+├── upload_to_s3.py
+├── amplitude_data/
+│   └── clean/        # JSON files waiting to be uploaded
+├── log/              # Extract logs
+└── load_log/         # Upload logs
+```
+
+## Notes
+
+- Both scripts use relative paths, so run them from the project root.
+- The extract script always pulls the previous day. To backfill other dates, change `start_time` and `end_time` in the script.
+- If the upload script finds no files in `amplitude_data/clean/`, it does nothing.
