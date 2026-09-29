@@ -71,7 +71,7 @@ status = response.status_code
 zip_path = f'{amp_dir}/{timestamp}.zip'
 extract_dir = f'{amp_dir}/{timestamp}'
 
-clean_extract_dir = f'{amp_dir}/{timestamp}/clean'
+clean_extract_dir = f'{amp_dir}/clean'
 os.makedirs(clean_extract_dir, exist_ok = True)
 
 extension = ".json.gz"
@@ -104,6 +104,11 @@ if status == 200:
                 shutil.move(source_path, clean_path)
         print(f'{clean_extract_dir} was successfully saved')
         logger.info(f'{clean_extract_dir} was successfully saved')
+
+        shutil.rmtree(extract_dir)
+        os.remove(zip_path)
+        print(f'{extract_dir} and {zip_path} was successfully deleted')
+        logger.info(f'{extract_dir} and {zip_path} was successfully deleted')
     except Exception as e:
         print(f'An error has occured: {e}')
         logger.error(f'An error has occured: {e}')
@@ -119,9 +124,3 @@ elif status == 504:
 else:                     
     print(f'{status} status code. Error. Please fix')
     logger.critical(f'{status} status code. Error. Please fix')
-
-
-shutil.rmtree(gz_folder)
-os.remove(zip_path)
-print(f'{gz_folder} and {zip_path} was successfully deleted')
-logger.info(f'{gz_folder} and {zip_path} was successfully deleted')
