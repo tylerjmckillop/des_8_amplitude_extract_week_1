@@ -50,21 +50,27 @@ def extraction(amp_api_key: str, amp_secret_key: str, url: str, amp_dir: str, ti
 
             gz_folder = os.path.join(extract_dir, os.listdir(extract_dir)[0])
 
-            for item in os.listdir(gz_folder):     
-                if item.endswith(extension):        
-                    file_path = os.path.join(gz_folder, item) 
-                    out_path = file_path[:-3]                   
+            # Unzip each .gz file (no printing here, these are temp files)
+            for item in os.listdir(gz_folder):
+                if item.endswith(extension):
+                    file_path = os.path.join(gz_folder, item)
+                    out_path = file_path[:-3]
                     with gzip.open(file_path, 'rb') as f_in:
-                        with open(out_path, 'wb') as f_out:  
-                            shutil.copyfileobj(f_in, f_out)      
-                            print(f'{gz_folder} was successfully saved')
-                            logger.info(f'{gz_folder} was successfully saved')
-                            
+                        with open(out_path, 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+
+            today = dt.now().strftime('%Y-%m-%d')
+
             for item in os.listdir(gz_folder):
                 if item.endswith(clean_extension):
+                    project_id, data_date, hour = item.split('_', 2)
+                    new_name = f'{project_id}_{today}_{hour}'
                     source_path = os.path.join(gz_folder, item)
-                    clean_path = os.path.join(clean_extract_dir, item)
+                    clean_path = os.path.join(clean_extract_dir, new_name)
                     shutil.move(source_path, clean_path)
+                    print(f'{new_name} was successfully saved')
+                    logger.info(f'{new_name} was successfully saved')
+
             print(f'{clean_extract_dir} was successfully saved')
             logger.info(f'{clean_extract_dir} was successfully saved')
 
