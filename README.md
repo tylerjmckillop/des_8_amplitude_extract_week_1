@@ -1,19 +1,24 @@
 # Amplitude to S3 Pipeline
 
-Two Python scripts that export event data from Amplitude and upload it to an AWS S3 bucket.
+A Python pipeline that exports event data from Amplitude and uploads it to an AWS S3 bucket. Everything is run from a single entry point, `main.py`.
 
-1. **`extract_amplitude.py`**: downloads yesterday's Amplitude data and unpacks it into JSON files.
-2. **`upload_to_s3.py`**: uploads those JSON files to S3.
+## How it works
 
-Run them in that order, from the project root.
+1. **Extract** (`modules/amplitude_extract_module.py`): downloads yesterday's data from Amplitude.
+2. **Load** (`modules/amplitude_load_module.py`): uploads the extracted files to S3.
+3. **Logging** (`modules/loginitialise.py`): sets up a timestamped log file for each run.
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Create a virtual environment and install dependencies
 
 ```bash
-pip install requests boto3 python-dotenv
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
+
+`requirements.txt` should include `requests`, `boto3` and `python-dotenv`.
 
 ### 2. Create a `.env` file
 
@@ -27,25 +32,26 @@ AWS_SECRET_ACCESS_KEY=your_aws_secret_key
 AWS_BUCKET_NAME=your_bucket_name
 ```
 
-Never commit `.env` to version control.
+`.env` is listed in `.gitignore`. Never commit it.
 
 ## Usage
 
+Run from the project root:
+
 ```bash
-python extract_amplitude.py
-python upload_to_s3.py
+python main.py
 ```
 
-## What each script does
+## What each module does
 
-### `extract_amplitude.py`
+### `amplitude_extract_module.py`
 
 - Calls the Amplitude Export API (EU endpoint) for **yesterday's data**, from 00:00 to 23:00.
 - Saves the response as a temporary zip file and extracts it.
 - Decompresses the `.json.gz` files into `.json`.
 - Moves the finished files to `amplitude_data/clean/`.
 - Deletes the temporary zip and extract folder.
-- Logs to `log/logging_amplitude_data_<timestamp>.log`.
+- Logs each step (success, warnings and errors).
 
 Amplitude status codes handled:
 
@@ -57,28 +63,41 @@ Amplitude status codes handled:
 | 504   | Timeout, use the Amazon S3 destination for large volumes |
 | Other | Logged as a critical error                               |
 
-### `upload_to_s3.py`
+### `amplitude_load_module.py`
 
+- Connects to S3 using your AWS credentials.
 - Reads every file in `amplitude_data/clean/`.
 - Uploads each file to the S3 bucket, using the filename as the object key.
 - **Deletes each local file after a successful upload.** Files that fail to upload are kept so you can retry.
-- Logs to `load_log/<timestamp>.log`.
+- Logs each upload (success or error).
 
-## Folder structure
+### `loginitialise.py`
+
+- Creates the log folder (`logs/`) if it doesn't exist.
+- Configures logging so messages are written to a timestamped `.log` file, one per run.
+
+## Project structure
 
 ```
 .
-├── .env
-├── extract_amplitude.py
-├── upload_to_s3.py
+├── main.py                        # Entry point: runs extract, then load
+├── modules/
+│   ├── amplitude_extract_module.py
+│   ├── amplitude_load_module.py
+│   └── loginitialise.py
 ├── amplitude_data/
-│   └── clean/        # JSON files waiting to be uploaded
-├── log/              # Extract logs
-└── load_log/         # Upload logs
+│   └── clean/                     # JSON files waiting to be uploaded
+├── logs/                          # Log files, one per run
+├── archive/
+├── .env                           # Secrets (not committed)
+├── .gitignore
+├── requirements.txt
+├── LICENSE
+└── README.md
 ```
 
 ## Notes
 
-- Both scripts use relative paths, so run them from the project root.
-- The extract script always pulls the previous day. To backfill other dates, change `start_time` and `end_time` in the script.
-- If the upload script finds no files in `amplitude_data/clean/`, it does nothing.
+- The extract step always pulls the **previous day**. To backfill other dates, change the start and end times in the extract module.
+- Run everything from the project root, as paths are relative.
+- If `amplitude_data/clean/` is empty, the load step does nothing.
